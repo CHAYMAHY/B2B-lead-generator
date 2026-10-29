@@ -5,6 +5,8 @@ An end-to-end automated B2B lead generation and cold outreach pipeline built usi
 ---
 
 ## 📸 Workflow Screenshot 
+<img width="806" height="253" alt="image" src="https://github.com/user-attachments/assets/aecb0959-28ea-4ce7-8cee-bcecaeaf5beb" />
+
 
 
 
