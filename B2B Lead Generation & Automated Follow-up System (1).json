@@ -1,0 +1,859 @@
+{
+  "name": "B2B Lead Generation & Automated Follow-up System",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "7553f153-ce2c-4a51-917a-fcd2d10a2d05",
+      "name": "Daily Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -320,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c1",
+              "name": "company",
+              "type": "string",
+              "value": "={{ $json.title }}"
+            },
+            {
+              "id": "c2",
+              "name": "email",
+              "type": "string",
+              "value": "={{ $json.email || ($json.emails && $json.emails[0]) || \"\" }}"
+            },
+            {
+              "id": "c3",
+              "name": "website",
+              "type": "string",
+              "value": "={{ $json.website || \"\" }}"
+            },
+            {
+              "id": "c4",
+              "name": "category",
+              "type": "string",
+              "value": "={{ $json.categoryName || \"\" }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b91267c6-e623-411c-993f-1c1fe2650801",
+      "name": "Prepare Lead",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        96,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f1",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1986fa71-d48b-4ae2-8bc6-6b722eb50aef",
+      "name": "Keep New Leads With Email",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        304,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert B2B sales strategist. Analyze this lead and write a custom outreach offer.\n\nLead information:\n- Company: {{ $json.company }}\n- Category: {{ $json.category }}\n- Website: {{ $json.website }}\n\nTasks:\n1. Evaluate the lead and assign a fit score from 0 to 100.\n2. Write a personalized cold email proposal (subject and body). Write the body as simple HTML paragraphs.\n\n\"You must output your response strictly as a valid JSON object without any markdown formatting or extra text. Use this exact structure:\n\nJSON\n{\n  \"score\": <number between 0 and 100>,\n  \"rationale\": \"<your detailed analysis text here>\"\n}\n```\"*",
+        "hasOutputParser": true,
+        "batching": {}
+      },
+      "id": "b5ec10ed-4735-40d2-9353-ad4c6838fbd9",
+      "name": "AI Lead Analysis",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        576,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.8-flash",
+        "options": {}
+      },
+      "id": "7c9d15ea-29dd-45a8-bf40-f2a30b92d4bf",
+      "name": "Gemini Scoring Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        576,
+        256
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "",
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\"score\":85,\"email_subject\":\"Custom subject line\",\"email_body\":\"Custom email content...\"}"
+      },
+      "id": "ca75c0d2-90c4-4456-a6a1-fdfc5bd55d9c",
+      "name": "Offer Format",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        720,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "s1",
+              "leftValue": "={{ $json.score }}",
+              "rightValue": 70,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4970ae41-21b0-4b7d-8ab3-ce39c04a972d",
+      "name": "Filter High Score Leads",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        1152,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $(\"Prepare Lead\").item.json.email }}",
+        "subject": "={{ $json.output.email_subject }}",
+        "message": "={{ $json.output.email_body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "58a8d00c-d283-420c-b4ad-2e8d50d5b16d",
+      "name": "Send Special Offer",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1328,
+        160
+      ],
+      "webhookId": "3b3e136f-203d-4a3b-bc59-ffba1455e371",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1wcuvm_bcahcSqB3PZyWSgUjH7FCBXko1YRrLWdwc7MQ",
+          "mode": "list",
+          "cachedResultName": "n8n",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1wcuvm_bcahcSqB3PZyWSgUjH7FCBXko1YRrLWdwc7MQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Feuille 1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1wcuvm_bcahcSqB3PZyWSgUjH7FCBXko1YRrLWdwc7MQ/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "website": "={{ $('Run an Actor and get dataset').item.json.website }}",
+            "email": "={{ $('Run an Actor and get dataset').item.json.emails }}",
+            "company name": "={{ $('Prepare Lead').item.json.company }}",
+            "score": "={{ $('Filter High Score Leads').item.json.score }}",
+            "status": "={{ $json.labelIds[0] }}",
+            "date": "={{ $now.format('YYYY-MM-DD HH:mm:ss') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "company name",
+              "displayName": "company name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "website",
+              "displayName": "website",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "score",
+              "displayName": "score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "1b58ada7-940c-4b32-85db-15da0f1cb1bc",
+      "name": "Save Lead",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1504,
+        160
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "6060799881",
+        "text": "=<b>New offer sent</b>\nCompany: {{ $(\"Prepare Lead\").item.json.company }}\nEmail: {{ $(\"Prepare Lead\").item.json.email }}\nScore: {{ $(\"AI Lead Analysis\").item.json.output.score }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "5fffcbd7-7586-4477-9cab-315b8b209050",
+      "name": "Send Telegram Notification",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1680,
+        160
+      ],
+      "webhookId": "7f9d8534-dd46-4400-9add-145257430fb9",
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "amount": 3
+      },
+      "id": "f718af70-8541-44dd-80dc-a4e0142c392f",
+      "name": "Wait 3 Days",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1888,
+        48
+      ],
+      "webhookId": "91d61a58-e5e7-4900-a31e-668d2ee0fe16"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1wcuvm_bcahcSqB3PZyWSgUjH7FCBXko1YRrLWdwc7MQ",
+          "mode": "list",
+          "cachedResultName": "n8n",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1wcuvm_bcahcSqB3PZyWSgUjH7FCBXko1YRrLWdwc7MQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Feuille 1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1wcuvm_bcahcSqB3PZyWSgUjH7FCBXko1YRrLWdwc7MQ/edit#gid=0"
+        },
+        "options": {}
+      },
+      "id": "d07a514f-3e2c-4f69-8769-6649c8100fac",
+      "name": "Check Reply Status",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2048,
+        48
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "r1",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "Offer Sent",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9683613d-cfd2-41d5-a605-e83e428267fa",
+      "name": "Not Replied Yet",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        2208,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Write a short, polite follow-up email for a B2B lead who has not replied to our offer sent 3 days ago.\n- Company: {{ $json[\"Company Name\"] }}\n- Website: {{ $json.Website }}\n- Original subject: {{ $(\"AI Lead Analysis\").item.json.output.email_subject }}\n\nWrite the body as simple HTML paragraphs.",
+        "hasOutputParser": true,
+        "batching": {}
+      },
+      "id": "ee502957-601a-422d-b7e4-91bba7ea66ee",
+      "name": "AI Follow-up Generator",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        2448,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.8-flash",
+        "options": {}
+      },
+      "id": "6c5cf930-a949-4edc-a43b-36f013fb1a3c",
+      "name": "Gemini Follow-up Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        2448,
+        272
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": null,
+          "name": "Gateway credits",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\"followup_subject\":\"Re: ...\",\"followup_body\":\"Follow up text...\"}"
+      },
+      "id": "2e080154-88de-48e7-86c7-2e563ee83d47",
+      "name": "Follow-up Format",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        2592,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Check Reply Status').item.json.email.replace(/[\\[\\]\"]/g, '') }}",
+        "subject": "={{ $json.output.followup_subject }}",
+        "message": "={{ $json.output.followup_body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "27be74a1-6b72-4b64-909e-5e28ad677730",
+      "name": "Send Follow-up",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2800,
+        32
+      ],
+      "webhookId": "1b81d360-288c-465b-b664-010d9abf71f2",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1MGrJRh2RMWf1fmHvB8u7-ufvhJDe7MIXPykqzc-2QB0",
+          "mode": "list",
+          "cachedResultName": "update status",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1MGrJRh2RMWf1fmHvB8u7-ufvhJDe7MIXPykqzc-2QB0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Feuille 1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1MGrJRh2RMWf1fmHvB8u7-ufvhJDe7MIXPykqzc-2QB0/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "company name": "={{ $('Check Reply Status').item.json['company name'] }}",
+            "email": "={{ $('Check Reply Status').item.json.email }}",
+            "website": "={{ $('Check Reply Status').item.json.website }}",
+            "score": "={{ $('Check Reply Status').item.json.score }}",
+            "status": "={{ $('Check Reply Status').item.json.status }}",
+            "date": "={{ $('Check Reply Status').item.json.date }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "company name",
+              "displayName": "company name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "website",
+              "displayName": "website",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "score",
+              "displayName": "score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "7c663180-3797-4a3d-8269-63c35d316b10",
+      "name": "Update Status",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2960,
+        32
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "Run actor and get dataset",
+        "actorSource": "store",
+        "actorId": {
+          "__rl": true,
+          "value": "WnMxbsRLNbPeYL6ge",
+          "mode": "list",
+          "cachedResultName": "📩📍 Google Maps Email Extractor (lukaskrivka/google-maps-with-contact-details)",
+          "cachedResultUrl": "https://console.apify.com/actors/WnMxbsRLNbPeYL6ge/input"
+        },
+        "customBody": "{\n  \"searchStringsArray\": [\n    \"software company tunis\",\n    \"web agency tunis\",\n    \"agence web tunis\"\n  ],\n  \"locationQuery\": \"Tunis, Tunisia\",\n  \"maxCrawledPlacesPerSearch\": 5,\n  \"language\": \"en\",\n  \"shouldExtractEmails\": true,\n  \"scrapeEmails\": true,\n  \"scrapeWebsite\": true,\n  \"personalData\": true\n}",
+        "timeout": {},
+        "maxTotalChargeUsd": {},
+        "authentication": "apifyOAuth2Api"
+      },
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 2,
+      "position": [
+        -112,
+        160
+      ],
+      "id": "2c9c1564-0175-43e1-b2dd-75006aa7eb22",
+      "name": "Run an Actor and get dataset",
+      "credentials": {
+        "apifyOAuth2Api": {
+          "id": "",
+          "name": "Apify account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "for (const item of $input.all()) {\n  const rawText = item.json.text || \"\";\n  try {\n    \n    const cleanJson = rawText.replace(/```json|```/g, \"\").trim();\n    const parsedData = JSON.parse(cleanJson);\n\n    \n    item.json.score = parsedData.score;\n    item.json.rationale = parsedData.rationale;\n  } catch (e) {\n    \n    const match = rawText.match(/\"score\":\\s*(\\d+)/);\n    item.json.score = match ? parseInt(match[1]) : 0;\n  }\n}\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        160
+      ],
+      "id": "2f3b53cc-6190-49e4-a255-e5be7163dea6",
+      "name": "Code in JavaScript"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily Schedule": {
+      "main": [
+        [
+          {
+            "node": "Run an Actor and get dataset",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Lead": {
+      "main": [
+        [
+          {
+            "node": "Keep New Leads With Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep New Leads With Email": {
+      "main": [
+        [
+          {
+            "node": "AI Lead Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Lead Analysis": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Scoring Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Lead Analysis",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Offer Format": {
+      "ai_outputParser": [
+        []
+      ]
+    },
+    "Filter High Score Leads": {
+      "main": [
+        [
+          {
+            "node": "Send Special Offer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Special Offer": {
+      "main": [
+        [
+          {
+            "node": "Save Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Lead": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Telegram Notification": {
+      "main": [
+        [
+          {
+            "node": "Wait 3 Days",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 3 Days": {
+      "main": [
+        [
+          {
+            "node": "Check Reply Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Reply Status": {
+      "main": [
+        [
+          {
+            "node": "Not Replied Yet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Not Replied Yet": {
+      "main": [
+        [
+          {
+            "node": "AI Follow-up Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Follow-up Generator": {
+      "main": [
+        [
+          {
+            "node": "Send Follow-up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Follow-up Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Follow-up Generator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Follow-up Format": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Follow-up Generator",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Follow-up": {
+      "main": [
+        [
+          {
+            "node": "Update Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run an Actor and get dataset": {
+      "main": [
+        [
+          {
+            "node": "Prepare Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Filter High Score Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "2f4b9edf-5646-4aab-b0d8-29a38cfbfbbe",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2142f8a573647362d62ef165ab64ecfcd7e3d3801825b1658418a47d54de72e6"
+  },
+  "nodeGroups": [],
+  "id": "ceKvTsgJRZJGf7wo",
+  "tags": []
+}
